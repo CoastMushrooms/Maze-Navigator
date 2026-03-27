@@ -14,7 +14,13 @@ public class AverageBot {
 	private final Deque<Door> planned = new ArrayDeque<>();
 	private Room endRoom = null;
 	private int endId = -1;
-	private record DE(Door door, Room nb) {}
+	private static class DE {
+		private final Door door;
+		private final Room nb;
+		public DE(Door door, Room nb) { this.door = door; this.nb = nb; }
+		public Door door() { return door; }
+		public Room nb() { return nb; }
+	}
 	public AverageBot(String fileName) {
 		SerialLoader loader = new SerialLoader();
 		loader.deserialize("CaveData\\" + fileName + ".ser");
@@ -37,7 +43,7 @@ public class AverageBot {
 			path.add(chosen); roomPath.add(after);
 			edgeCount.computeIfAbsent(before, k -> new HashMap<>()).merge(chosen, 1, Integer::sum);
 			updateFrontier(before); updateFrontier(after);
-			if (graph.getOrDefault(after, List.of()).size() == 1) deadEnds.add(after); else deadEnds.remove(after);
+			if (graph.getOrDefault(after, Collections.<DE>emptyList()).size() == 1) deadEnds.add(after); else deadEnds.remove(after);
 		}
 		optimizePath();
 		report();
@@ -50,13 +56,13 @@ public class AverageBot {
 	}
 	//maintains list of unexplored rooms only
 	private void updateFrontier(Room r) {
-		Map<Door, Integer> used = edgeCount.getOrDefault(r, Map.of());
-		if (graph.getOrDefault(r, List.of()).stream().anyMatch(e -> used.getOrDefault(e.door(), 0) == 0)) frontier.add(r);
+		Map<Door, Integer> used = edgeCount.getOrDefault(r, Collections.<Door, Integer>emptyMap());
+		if (graph.getOrDefault(r, Collections.<DE>emptyList()).stream().anyMatch(e -> used.getOrDefault(e.door(), 0) == 0)) frontier.add(r);
 		else frontier.remove(r);
 	}
 	//next room lookup
 	private Room nb(Room r, Door d) {
-		return graph.getOrDefault(r, List.of()).stream().filter(e -> e.door() == d).map(DE::nb).findFirst().orElse(null);
+		return graph.getOrDefault(r, Collections.<DE>emptyList()).stream().filter(e -> e.door() == d).map(new java.util.function.Function<DE, Room>() { public Room apply(DE e) { return e.nb(); } }).findFirst().orElse(null);
 	}
 	private int h(Room r) { return endId < 0 ? 0 : Math.abs(r.getID() - endId); }
 	//prioritization scoring by ID proximity
@@ -69,7 +75,7 @@ public class AverageBot {
 		while (!open.isEmpty()) {
 			Room cur = open.poll();
 			if (goal.test(cur) && !cur.equals(start)) return reconstruct(start, cur, from);
-			for (DE e : graph.getOrDefault(cur, List.of())) {
+			for (DE e : graph.getOrDefault(cur, Collections.<DE>emptyList())) {
 				int ng = g.getOrDefault(cur, Integer.MAX_VALUE) + 1;
 				if (ng < g.getOrDefault(e.nb(), Integer.MAX_VALUE)) { g.put(e.nb(), ng); from.put(e.nb(), new DE(e.door(), cur)); open.add(e.nb()); }
 			}
@@ -84,7 +90,7 @@ public class AverageBot {
 		q.add(start); from.put(start, null);
 		while (!q.isEmpty()) {
 			Room cur = q.poll();
-			for (DE e : graph.getOrDefault(cur, List.of())) {
+			for (DE e : graph.getOrDefault(cur, Collections.<DE>emptyList())) {
 				if (from.containsKey(e.nb())) continue;
 				from.put(e.nb(), new DE(e.door(), cur));
 				if (goal.test(e.nb())) return reconstruct(start, e.nb(), from);
@@ -117,12 +123,12 @@ public class AverageBot {
 	}
 	//prefers unused door from current room
 	private Door pickUnexplored(Room cur) {
-		Map<Door, Integer> used = edgeCount.getOrDefault(cur, Map.of());
-		List<Door> unused = nav.getDoors().stream().filter(d -> used.getOrDefault(d, 0) == 0).toList();
+		Map<Door, Integer> used = edgeCount.getOrDefault(cur, Collections.<Door, Integer>emptyMap());
+		List<Door> unused = new java.util.ArrayList<>(); for (Door door : nav.getDoors()) if (used.getOrDefault(door, 0) == 0) unused.add(door);
 		if (unused.isEmpty()) return null;
-		List<Door> pool = unused.stream().filter(d -> nb(cur, d) == null).toList();
+		List<Door> pool = new java.util.ArrayList<>(); for (Door door : unused) if (nb(cur, door) == null) pool.add(door);
 		if (pool.isEmpty()) pool = unused;
-		List<Door> cands = pool.stream().filter(d -> !deadEnds.contains(nb(cur, d))).toList();
+		List<Door> cands = new java.util.ArrayList<>(); for (Door door : pool) if (!deadEnds.contains(nb(cur, door))) cands.add(door);
 		if (cands.isEmpty()) cands = pool;
 		if (endId >= 0) return cands.stream().min(Comparator.comparingInt(d -> { Room n = nb(cur, d); return n == null ? 0 : h(n); })).orElse(cands.get(0));
 		return cands.get((int) (Math.random() * cands.size()));
@@ -142,7 +148,7 @@ public class AverageBot {
 	private int fScore(Room r) {
 		if (deadEnds.contains(r)) return -1000;
 		Map<Door, Integer> used = edgeCount.getOrDefault(r, Map.of());
-		int unex = (int) graph.getOrDefault(r, List.of()).stream().filter(e -> used.getOrDefault(e.door(), 0) == 0).count();
+		int unex = (int) graph.getOrDefault(r, Collections.<DE>emptyList()).stream().filter(e -> used.getOrDefault(e.door(), 0) == 0).count();
 		return unex * 10 + (endId >= 0 ? endId - Math.abs(r.getID() - endId) : 0);
 	}
 	//path segment improvements with breadth-first search (bfs) then implements shortcut check

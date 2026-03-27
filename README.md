@@ -1,5 +1,15 @@
 # Maze-Navigator
-This repositories contains files to create a Optimized Maze Navigator as well as maze files
+This repository contains files to create an optimized maze navigator and sample maze data.
 
-Clone Using:
-git clone https://github.com/CoastMushrooms/Maze-Navigator
+Clone using:
+
+    git clone https://github.com/CoastMushrooms/Maze-Navigator
+
+Build + run:
+
+    cd Maze-Navigator
+    javac *.java
+    java AverageBotTester
+
+Do not run with file ext when invoking Java classloader, e.g. do not use `java AverageBotTester.java`.
+
