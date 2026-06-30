@@ -6,7 +6,6 @@ public class CaveNavigator {
     private Room endRoom;
 
     public CaveNavigator(SerialLoader loader) {
-        // Build a small fixed maze for demonstration no matter input.
         Room r1 = new Room(1);
         Room r2 = new Room(2);
         Room r3 = new Room(3);
@@ -26,8 +25,6 @@ public class CaveNavigator {
 
         current = r1;
         endRoom = r4;
-
-        // Reset move counter each time created
         Room.resetNumMoves();
     }
 
@@ -45,7 +42,6 @@ public class CaveNavigator {
             current = neighbors.get(d);
             Room.incrementNumMoves();
         } else {
-            // if invalid door, still count as a move to avoid infinite loop in buggy logic
             Room.incrementNumMoves();
         }
     }

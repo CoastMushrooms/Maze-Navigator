@@ -49,24 +49,22 @@ public class AverageBot {
 		report();
 	}
 	private Door chosen;
-	//adds to graph map
 	private void addEdge(Room from, Door d, Room to) {
 		List<DE> es = graph.computeIfAbsent(from, k -> new ArrayList<>());
 		if (es.stream().noneMatch(e -> e.door() == d)) es.add(new DE(d, to));
 	}
-	//maintains list of unexplored rooms only
+
 	private void updateFrontier(Room r) {
 		Map<Door, Integer> used = edgeCount.getOrDefault(r, Collections.<Door, Integer>emptyMap());
 		if (graph.getOrDefault(r, Collections.<DE>emptyList()).stream().anyMatch(e -> used.getOrDefault(e.door(), 0) == 0)) frontier.add(r);
 		else frontier.remove(r);
 	}
-	//next room lookup
+
 	private Room nb(Room r, Door d) {
 		return graph.getOrDefault(r, Collections.<DE>emptyList()).stream().filter(e -> e.door() == d).map(new java.util.function.Function<DE, Room>() { public Room apply(DE e) { return e.nb(); } }).findFirst().orElse(null);
 	}
 	private int h(Room r) { return endId < 0 ? 0 : Math.abs(r.getID() - endId); }
-	//prioritization scoring by ID proximity
-	//gotta choose moves that are best to go through next
+
 	private List<Door> aStar(Room start, Predicate<Room> goal) {
 		Map<Room, DE> from = new HashMap<>();
 		Map<Room, Integer> g = new HashMap<>();
@@ -82,8 +80,7 @@ public class AverageBot {
 		}
 		return null;
 	}
-	//known algo for guaranteed shortest path by distance
-	//quenue makes this so much easier to handle
+
 	private List<Door> bfs(Room start, Predicate<Room> goal) {
 		Map<Room, DE> from = new HashMap<>();
 		Queue<Room> q = new ArrayDeque<>();
@@ -99,13 +96,13 @@ public class AverageBot {
 		}
 		return null;
 	}
-	//traceback for correct sequence
+
 	private List<Door> reconstruct(Room start, Room end, Map<Room, DE> from) {
 		LinkedList<Door> doors = new LinkedList<>();
 		for (Room c = end; !c.equals(start); ) { DE s = from.get(c); doors.addFirst(s.door()); c = s.nb(); }
 		return new ArrayList<>(doors);
 	}
-	//pick by priority then fallback to unexplored
+	
 	private Door pickSmartDoor() {
 		if (!planned.isEmpty()) return planned.poll();
 		Room cur = nav.getCurrentRoom();
@@ -121,7 +118,7 @@ public class AverageBot {
 		List<Door> all = new ArrayList<>(nav.getDoors());
 		return all.get((int) (Math.random() * all.size()));
 	}
-	//prefers unused door from current room
+	
 	private Door pickUnexplored(Room cur) {
 		Map<Door, Integer> used = edgeCount.getOrDefault(cur, Collections.<Door, Integer>emptyMap());
 		List<Door> unused = new java.util.ArrayList<>(); for (Door door : nav.getDoors()) if (used.getOrDefault(door, 0) == 0) unused.add(door);
@@ -133,7 +130,7 @@ public class AverageBot {
 		if (endId >= 0) return cands.stream().min(Comparator.comparingInt(d -> { Room n = nb(cur, d); return n == null ? 0 : h(n); })).orElse(cands.get(0));
 		return cands.get((int) (Math.random() * cands.size()));
 	}
-	//navigates to highest a* score room then passes route into planned
+	
 	private Door routeToFrontier(Room cur) {
 		Room best = frontier.stream().filter(r -> !r.equals(cur)).max(Comparator.comparingInt(this::fScore)).orElse(null);
 		if (best == null) return null;
@@ -144,14 +141,14 @@ public class AverageBot {
 		route.subList(1, route.size()).forEach(planned::add);
 		return route.get(0);
 	}
-	//unexplored room scoring by id proximity and penalized dead ends
+	
 	private int fScore(Room r) {
 		if (deadEnds.contains(r)) return -1000;
 		Map<Door, Integer> used = edgeCount.getOrDefault(r, Map.of());
 		int unex = (int) graph.getOrDefault(r, Collections.<DE>emptyList()).stream().filter(e -> used.getOrDefault(e.door(), 0) == 0).count();
 		return unex * 10 + (endId >= 0 ? endId - Math.abs(r.getID() - endId) : 0);
 	}
-	//path segment improvements with breadth-first search (bfs) then implements shortcut check
+	
 	private void optimizePath() {
 		removeLoops();
 		boolean improved = true;
@@ -180,7 +177,7 @@ public class AverageBot {
 		for (Door d : sc) { c = nb(c, d); rms.add(c); }
 		roomPath.addAll(i + 1, rms);
 	}
-	//dawg do NOT REPEAT A PAth
+	
 	private void removeLoops() {
 		boolean changed = true;
 		while (changed) {
@@ -193,14 +190,14 @@ public class AverageBot {
 			}
 		}
 	}
-	//basic report for the path
+	
 	private void report() {
 		totalLengthOfPaths += path.size();
 		System.out.println("Found the End!\nsteps = " + (Room.getNumMoves() - lastMazeSteps) + " | path length = " + path.size());
 		if (showPath) { System.out.print("\nPATH: START -> "); for (Door d : path) System.out.print(d + " -> "); System.out.println("END"); }
 		System.out.println("__________________________________________________________________\n");
 	}
-	//main doesnt matter
+	
 	public static void main(String[] args) {
 		for (String f : new String[]{"M1","M2","M3","M4","M5","M6","M7","M8","M9"}) new AverageBot(f).run();
 		System.out.println("Done!\nTotal moves between Rooms = " + Room.getNumMoves());
